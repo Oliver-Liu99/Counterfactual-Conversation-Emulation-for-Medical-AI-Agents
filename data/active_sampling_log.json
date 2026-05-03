@@ -1,0 +1,13 @@
+{
+  "n_pool": 80,
+  "n_selected": 30,
+  "n_chapters": 3,
+  "chapters": [
+    "I",
+    "J",
+    "K"
+  ],
+  "judge_mode": "mock",
+  "min_chapters": 3,
+  "seed": 42
+}
