@@ -85,6 +85,27 @@ cp .env.example .env   # fill in API keys
 pytest tests/test_synthetic_oracle.py -v
 ```
 
+## Verifying API connectivity
+
+Before running any real-API pipeline step (judges, agents), verify that
+each provider's SDK + key is wired up correctly:
+
+```bash
+export ANTHROPIC_API_KEY=...   # for the debate defender
+export OPENAI_API_KEY=...      # for the debate judge / pi_agent sampling
+export GOOGLE_API_KEY=...      # for the debate prosecutor
+
+PYTHONPATH=src python3 scripts/verify_apis.py            # require all 3
+PYTHONPATH=src python3 scripts/verify_apis.py --skip-missing  # CI-friendly
+```
+
+The script prints a per-provider PASS/FAIL/SKIP table from a 1-token
+`health_check()` ping. When all three keys are present it additionally
+runs ONE end-to-end debate-judge round (defender=Anthropic,
+prosecutor=Google, judge=OpenAI) on a tiny synthetic case to verify the
+full chain. Exit code is non-zero if any configured provider fails, so
+you can drop the `--skip-missing` invocation directly into CI.
+
 ## Hard constraints (built into the code)
 
 1. **Time-zero**: `x` must contain only pre-decision information. Loaders

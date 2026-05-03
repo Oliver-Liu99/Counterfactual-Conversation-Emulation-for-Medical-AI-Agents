@@ -26,6 +26,14 @@ from ccema.utils.seeding import set_global_seed
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _torch_available() -> bool:
+    try:
+        import torch  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/eval_config_v1.yaml")
@@ -36,9 +44,20 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--epochs", type=int, default=30)
     p.add_argument("--tau", type=float, default=0.07)
     p.add_argument("--lambda-hsic", type=float, default=0.1)
-    p.add_argument("--lr", type=float, default=1e-4)
+    p.add_argument(
+        "--lr",
+        type=float,
+        default=None,
+        help="Learning rate. Default: 1e-3 for torch backend, 1e-4 for numpy.",
+    )
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--output-dir", default="outputs/step6_cce")
+    p.add_argument(
+        "--backend",
+        choices=["numpy", "torch", "auto"],
+        default="auto",
+        help="Training backend. 'auto' picks torch if installed, else numpy.",
+    )
     return p.parse_args()
 
 
@@ -90,16 +109,35 @@ def main() -> None:
     anchor, positive, other = make_synthetic_triplets(encs, encoder)
     print(f"Embedded: anchor={anchor.shape}, positive={positive.shape}, other={other.shape}")
 
+    backend = args.backend
+    if backend == "auto":
+        backend = "torch" if _torch_available() else "numpy"
+
+    # Backend-specific default lr: torch uses proper L2-norm gradients so a
+    # higher lr trains in the same #epochs; numpy's biased gradient is more
+    # delicate and benefits from a lower lr.
+    lr = args.lr
+    if lr is None:
+        lr = 1e-3 if backend == "torch" else 1e-4
+
     cfg_train = CCEConfig(
         input_dim=anchor.shape[1],
         projection_dim=args.projection_dim,
         tau=args.tau,
         lambda_hsic=args.lambda_hsic,
-        learning_rate=args.lr,
+        learning_rate=lr,
         epochs=args.epochs,
         seed=args.seed,
     )
-    proj = train_cce_numpy(anchor, positive, cfg_train)
+    if backend == "torch":
+        if not _torch_available():
+            raise RuntimeError("torch backend requested but torch is not installed")
+        from ccema.embeddings.cce_torch import train_cce_torch
+
+        proj = train_cce_torch(anchor, positive, cfg_train)
+    else:
+        proj = train_cce_numpy(anchor, positive, cfg_train)
+    print(f"Backend: {backend}")
     print(f"Trained for {args.epochs} epochs; final InfoNCE = {proj.history[-1]['info_nce']:.4f}")
 
     # Sanity check
@@ -115,6 +153,7 @@ def main() -> None:
         json.dumps(
             {
                 "backbone": args.backbone,
+                "backend": backend,
                 "input_dim": anchor.shape[1],
                 "projection_dim": args.projection_dim,
                 "epochs": args.epochs,
