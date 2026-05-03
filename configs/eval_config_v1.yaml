@@ -114,24 +114,25 @@ embeddings:
   pca_dim_for_dre: 32
 
 estimators:
-  - id: "dm"
-    paper_baseline: true
-  - id: "ips_classifier"
-    paper_baseline: true
-    self_normalized: true
-    truncation_quantile: 0.99
-  - id: "dr"
-    paper_baseline: true
-  - id: "mips"                        # U3
-    embedding: "cce_medcpt_pca32"
-  - id: "dml_dr"                      # U1
-    cv_folds: 5
-  - id: "tmle"                        # U1
+  list:
+    - id: "dm"
+      paper_baseline: true
+    - id: "ips_classifier"
+      paper_baseline: true
+      self_normalized: true
+      truncation_quantile: 0.99
+    - id: "dr"
+      paper_baseline: true
+    - id: "mips"                        # U3
+      embedding: "cce_medcpt_pca32"
+    - id: "dml_dr"                      # U1
+      cv_folds: 5
+    - id: "tmle"                        # U1
   bootstrap:
     n_samples: 1000
     method: "BCa"
   conformal_ci:
-    alpha: 0.10                       # nominal 90% coverage
+    alpha: 0.10                         # nominal 90% coverage
     method: "split_conformal"
   positivity_gate:
     ess_per_n_min: 0.10
