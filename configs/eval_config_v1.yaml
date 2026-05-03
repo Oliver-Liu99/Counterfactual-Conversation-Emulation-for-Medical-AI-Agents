@@ -1,0 +1,155 @@
+# Locked-in evaluation configuration for v1 main experiment.
+# Update this file via scripts/00_freeze_config.py — never edit by hand mid-experiment.
+
+run:
+  name: "v1_main"
+  seed: 42
+  output_root: "outputs/v1_main"
+
+data:
+  prototype:
+    name: "aci_bench"
+    expected_n: 207
+  main:
+    name: "mts_dialog"
+    expected_n: 1700
+  noise_robustness:
+    name: "meddialog_en"
+    expected_n: 260000
+  time_zero:
+    cut_at_intent: "assessment"      # ACI-Bench 2025 release
+    strip_sections: ["assessment", "plan", "icd10", "post_decision_labs"]
+    leak_probe_holdout_frac: 0.10
+
+agents:
+  strong:
+    id: "claude-opus-4-5"
+    vendor: "anthropic"
+    temperature: 0.2
+    max_tokens: 2048
+    n_samples_per_case: 5
+  weak:
+    id: "gpt-3.5-turbo-0125"
+    vendor: "openai"
+    temperature: 0.2
+    max_tokens: 2048
+    n_samples_per_case: 5
+    seed: 42                          # OpenAI seed pinning
+  open_medical:
+    id: "google/medgemma-27b-text-it"
+    vendor: "huggingface"
+    temperature: 0.2
+    max_tokens: 2048
+    n_samples_per_case: 5
+  scaffolded:                         # optional ablation arm
+    enabled: false
+    id: "claude-opus-4-5"
+    framework: "medagentbench_fhir"
+  prompt_path: "configs/prompts/pi_agent_system.txt"
+
+judges:
+  mode: "debate"                      # one of: single, ensemble, debate
+  debate:
+    defender:
+      id: "claude-opus-4-5"
+      vendor: "anthropic"
+    prosecutor:
+      id: "gemini-2.5-pro"
+      vendor: "google"
+    judge:
+      id: "gpt-5"
+      vendor: "openai"
+    extended_thinking: false          # do not enable reasoning by default
+  single_fallback:
+    id: "claude-opus-4-5"
+  reproducibility_anchor:
+    id: "prometheus-eval/Prometheus-2-8x7B-BGB"
+    vendor: "huggingface"
+  axes:
+    - "ddx_accuracy"
+    - "mx_safety"
+    - "mx_practicality"
+    - "mx_cost"
+  output_format: "beta"               # alpha, beta posterior over [0,1]
+  prompts:
+    defender: "configs/prompts/debate_defender.txt"
+    prosecutor: "configs/prompts/debate_prosecutor.txt"
+    judge: "configs/prompts/debate_judge.txt"
+
+calibration:
+  set_size: 100
+  sampling: "active_mutual_information"
+  stratify_by:
+    - "icd_chapter"
+    - "source_arm"                    # clinician vs agent (double-blind balance)
+  min_icd_chapters: 8
+  min_annotators: 3
+  metrics:
+    spearman_rho: { gate: 0.70 }
+    quadratic_weighted_kappa: { gate: 0.40 }
+    icc_2_1: { gate: 0.75 }
+    bland_altman_bias_abs: { gate: 0.05 }
+  upgrade_to_ensemble_if_any:         # any ONE failing → escalate to 3-judge ensemble
+    - spearman_rho_lt: 0.70
+    - kappa_lt: 0.40
+    - bias_abs_gt: 0.05
+    - sign_disagree_frac_gt: 0.15
+
+embeddings:
+  backbones:
+    - id: "ncbi/MedCPT-Article-Encoder"
+      dim: 768
+    - id: "BAAI/bge-m3"
+      dim: 1024
+    - id: "sentence-transformers/all-mpnet-base-v2"
+      dim: 768
+  cce:
+    enabled: true
+    projection_dim: 128
+    tau: 0.07
+    lambda_hsic: 0.1
+    epochs: 30
+    batch_size: 64
+    learning_rate: 1e-4
+  pca_dim_for_dre: 32
+
+estimators:
+  - id: "dm"
+    paper_baseline: true
+  - id: "ips_classifier"
+    paper_baseline: true
+    self_normalized: true
+    truncation_quantile: 0.99
+  - id: "dr"
+    paper_baseline: true
+  - id: "mips"                        # U3
+    embedding: "cce_medcpt_pca32"
+  - id: "dml_dr"                      # U1
+    cv_folds: 5
+  - id: "tmle"                        # U1
+  bootstrap:
+    n_samples: 1000
+    method: "BCa"
+  conformal_ci:
+    alpha: 0.10                       # nominal 90% coverage
+    method: "split_conformal"
+  positivity_gate:
+    ess_per_n_min: 0.10
+    classifier_auc_max: 0.90
+
+sensitivity:
+  enabled: true
+  gammas: [1.0, 1.5, 2.0, 3.0]
+  parameterization: "logistic_msm"
+
+decomposition:
+  enabled: true
+  mediators:
+    - "ddx_accuracy"
+    - "mx_safety"
+    - "mx_practicality"
+    - "mx_cost"
+  subpopulations_by:
+    - "icd_chapter"
+    - "age_band"
+    - "comorbidity_count"

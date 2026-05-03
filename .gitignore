@@ -1,0 +1,53 @@
+# Data — never commit raw clinical data
+data/raw/
+data/processed/
+data/calibration_set.parquet
+data/*.csv
+data/*.jsonl
+data/*.parquet
+!data/README.md
+!data/synthetic/
+
+# Caches
+.cache/
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Env / secrets
+.env
+.env.local
+*.key
+secrets/
+
+# Model artifacts
+artifacts/
+checkpoints/
+*.pt
+*.safetensors
+wandb/
+
+# Outputs
+outputs/
+results/
+figures/
+runs/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Build
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Notebooks executed
+notebooks/*.html
+notebooks/.ipynb_checkpoints/

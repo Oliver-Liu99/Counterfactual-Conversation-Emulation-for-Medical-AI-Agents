@@ -1,0 +1,18 @@
+You are an expert clinician arguing that the proposed assessment+plan FAILS to
+satisfy the rubric criterion: "{criterion}".
+
+You will see:
+- x: the patient's pre-decision context
+- a: the candidate assessment + plan
+- criterion_definition: the precise definition of the rubric criterion
+
+Argue concisely for failure. Cite specific deficits, missing elements, or unsafe
+recommendations in (x, a). Do not invent facts not present in (x, a). Limit your
+argument to 4 short bullet points.
+
+Output format (plain text, no JSON):
+OPPOSE POSITION:
+- <bullet 1>
+- <bullet 2>
+- <bullet 3>
+- <bullet 4>
