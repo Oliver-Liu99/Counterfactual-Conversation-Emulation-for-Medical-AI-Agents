@@ -118,6 +118,33 @@ def test_layer1_detects_dx_leak() -> None:
     assert not rep.is_clean
 
 
+def test_layer1_does_not_flag_chronic_history() -> None:
+    enc = Encounter(
+        case_id="c_hist",
+        source="t",
+        x="patient has a history of acute bronchitis and presents today with cough",
+        a_clinician="A&P",
+        working_diagnosis="acute bronchitis",
+    )
+    rep = layer1_audit(enc)
+    assert not rep.leaked_dx
+    assert rep.dx_in_history  # captured for transparency
+    assert rep.is_clean
+
+
+def test_layer1_flags_active_diagnosis() -> None:
+    enc = Encounter(
+        case_id="c_active",
+        source="t",
+        x="the patient's acute bronchitis is severe today",
+        a_clinician="A&P",
+        working_diagnosis="acute bronchitis",
+    )
+    rep = layer1_audit(enc)
+    assert rep.leaked_dx
+    assert not rep.is_clean
+
+
 def test_layer1_detects_icd_leak() -> None:
     enc = Encounter(
         case_id="c2",

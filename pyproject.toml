@@ -12,6 +12,11 @@ license = { text = "MIT" }
 authors = [{ name = "Oliver Liu" }]
 dynamic = ["dependencies"]
 
+[project.urls]
+Homepage = "https://github.com/Oliver-Liu99/Counterfactual-Conversation-Emulation-for-Medical-AI-Agents"
+"Bug Tracker" = "https://github.com/Oliver-Liu99/Counterfactual-Conversation-Emulation-for-Medical-AI-Agents/issues"
+Repository = "https://github.com/Oliver-Liu99/Counterfactual-Conversation-Emulation-for-Medical-AI-Agents"
+
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
 

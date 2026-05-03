@@ -1,5 +1,7 @@
 # Counterfactual Conversation Emulation for Medical AI Agents
 
+[![tests](https://github.com/Oliver-Liu99/Counterfactual-Conversation-Emulation-for-Medical-AI-Agents/actions/workflows/test.yml/badge.svg)](https://github.com/Oliver-Liu99/Counterfactual-Conversation-Emulation-for-Medical-AI-Agents/actions/workflows/test.yml)
+
 > Estimating the deployment effect of medical AI agents from historical
 > clinician–patient dialogue, by combining **target trial emulation** with
 > modern **off-policy evaluation** for natural-language action spaces.
@@ -121,6 +123,31 @@ you can drop the `--skip-missing` invocation directly into CI.
    and DRE classifier AUC < 0.9; otherwise the pipeline reports DM + DR
    only and flags the failure mode.
 
+## Reproducibility
+
+This project ships three layers of reproducibility tooling so results can be
+re-derived bit-for-bit:
+
+1. **`requirements.txt`** - declares the dependency *ranges* the codebase is
+   developed against (`>=` minimums only).
+2. **`requirements-lock.txt`** - exact `==` pins of a known-working environment.
+   Use this for paper-grade reruns:
+   ```bash
+   make install-locked
+   ```
+3. **`Makefile`** - canonical entrypoints used by both humans and CI:
+   - `make install` - install with version ranges
+   - `make install-locked` - install pinned versions from the lockfile
+   - `make test` - run the full test suite (real-data tests skip when
+     `data/raw/aci_bench/` is absent)
+   - `make synthetic` - run the Step-8 synthetic OPE oracle benchmark
+   - `make lint` - non-blocking `ruff` style report
+   - `make clean` - remove caches and build artefacts
+4. **GitHub Actions CI** (`.github/workflows/test.yml`) runs the full test
+   suite on Python 3.10 and 3.11 on every push to `main` and every PR.
+
 ## Citation
 
-Will be added when the paper is on arXiv.
+If you use this code, please cite via the `CITATION.cff` in the repo root.
+GitHub renders this automatically as a "Cite this repository" button.
+A method paper (arXiv preprint, TBD) will be linked here once posted.

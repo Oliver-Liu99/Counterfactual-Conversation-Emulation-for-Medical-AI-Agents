@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "Counterfactual Conversation Emulation for Medical AI Agents"
+abstract: >-
+  Estimating the deployment effect of medical AI agents from historical
+  clinician-patient dialogue, by combining target trial emulation with
+  modern off-policy evaluation for natural-language action spaces.
+type: software
+authors:
+  # FIXME: confirm full name + ORCID
+  - family-names: "Liu"
+    given-names: "Oliver"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"  # FIXME: add ORCID
+license: MIT
+repository-code: "https://github.com/Oliver-Liu99/Counterfactual-Conversation-Emulation-for-Medical-AI-Agents"
+url: "https://github.com/Oliver-Liu99/Counterfactual-Conversation-Emulation-for-Medical-AI-Agents"
+version: "0.1.0"
+date-released: "2026-05-03"
+year: 2026
+keywords:
+  - medical-ai
+  - off-policy-evaluation
+  - target-trial-emulation
+  - causal-inference
+  - large-language-models
+
+preferred-citation:
+  # TBD: replace with the arXiv preprint once posted.
+  type: article
+  title: "Counterfactual Conversation Emulation for Medical AI Agents"
+  authors:
+    - family-names: "Liu"
+      given-names: "Oliver"
+  year: 2026
+  journal: "arXiv preprint"
+  notes: "TBD - arXiv ID pending"

@@ -10,7 +10,9 @@ Usage examples:
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import re
 from pathlib import Path
 
 from ccema.data.holdout import make_leak_probe_holdout
@@ -20,6 +22,7 @@ from ccema.data.leakage import (
     ngrams,
     summarize,
 )
+from ccema.data.leakage import _is_in_history_context  # noqa: F401  (used for triage)
 from ccema.data.loaders import load_dataset
 from ccema.utils.seeding import set_global_seed
 
@@ -109,6 +112,7 @@ def main() -> None:
         "layer1": {
             "n_clean": summary.n_layer1_clean,
             "failures": summary.layer1_failures,
+            "n_dx_in_history": summary.n_dx_in_history,
         },
         "layer2": {
             "n_flagged": summary.n_layer2_flagged,
@@ -121,8 +125,52 @@ def main() -> None:
     print(f"\nReport: {report_path.relative_to(REPO_ROOT)}")
     print(json.dumps(report, indent=2))
 
+    # Per-case triage CSV: every encounter with a working-dx string match,
+    # listing the matched span, +/- context, and our auto-classification
+    # (history vs leak) so a human reviewer can spot-check.
+    triage_path = out_dir / f"triage_{args.dataset}.csv"
+    _write_triage_csv(triage_path, main_set)
+    print(f"Triage CSV: {triage_path.relative_to(REPO_ROOT)}")
+
     if summary.n_layer1_clean < summary.n_encounters:
         print("\n  Layer-1 leakage detected. Review report and re-run with stricter time-zero cuts.")
+
+
+def _write_triage_csv(path: Path, encounters) -> None:
+    """For every encounter where the working dx surface form appears in `x`,
+    write one row per match with the auto-classification + 60 chars of
+    context on either side. Reviewers can sort by ``classification`` and
+    eyeball the LEAK-tagged rows.
+    """
+    fieldnames = [
+        "case_id",
+        "working_diagnosis",
+        "match_index",
+        "classification",
+        "context",
+    ]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for enc in encounters:
+            wd = (enc.working_diagnosis or "").strip()
+            if not wd or len(wd) <= 2 or wd.isdigit():
+                continue
+            pattern = r"\b" + re.escape(wd) + r"\b"
+            for m in re.finditer(pattern, enc.x, flags=re.IGNORECASE):
+                ctx_start = max(0, m.start() - 60)
+                ctx_end = min(len(enc.x), m.end() + 60)
+                ctx = enc.x[ctx_start:ctx_end].replace("\n", " ").strip()
+                cls = "history" if _is_in_history_context(enc.x, m.start()) else "leak"
+                writer.writerow(
+                    {
+                        "case_id": enc.case_id,
+                        "working_diagnosis": wd,
+                        "match_index": m.start(),
+                        "classification": cls,
+                        "context": ctx,
+                    }
+                )
 
 
 if __name__ == "__main__":
