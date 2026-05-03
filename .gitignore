@@ -5,6 +5,7 @@ data/calibration_set.parquet
 data/*.csv
 data/*.jsonl
 data/*.parquet
+data/*.json
 !data/README.md
 !data/synthetic/
 
