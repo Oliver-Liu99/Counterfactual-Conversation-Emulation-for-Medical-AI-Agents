@@ -370,6 +370,7 @@ def slide_06_assumptions():
 
 
 def slide_07_upgrades_table():
+    import textwrap
     fig, ax = new_slide(
         "四项升级总览",
         "U1-U4:替换了什么、来源、以及我们的贡献",
@@ -377,46 +378,50 @@ def slide_07_upgrades_table():
     rows = [
         ("U1", "现代 OPE 估计器",
          "朴素 IPS / DM",
-         "DML (Chernozhukov 2018)、TMLE (van der Laan 2006)、Conformal CI (Taufiq 2022)",
+         "DML (Chernozhukov 2018);TMLE (van der Laan 2006);Conformal CI (Taufiq 2022)",
          "首次落地到临床 NLP;完整的 DR 交叉拟合 + 目标更新实现"),
         ("U2", "多智能体辩论裁判",
          "单一 LLM 作裁判",
-         "Khan 2024、Chan 2024(多智能体辩论)",
-         "三方:辩护-起诉-裁判,跨厂商多样化 + Beta 后验"),
-        ("U3", "因果对比嵌入",
-         "现成的 SBERT/MedCPT 编码动作",
-         "InfoNCE (Oord 2018)、HSIC (Gretton 2005)、MIPS (Saito 2022)",
-         "核心贡献;真实 ACI-Bench 上 AUC=1.0 → 0.55,使 OPE 终于可识别"),
+         "Khan 2024;Chan 2024(多智能体辩论)",
+         "三方:辩护、起诉、裁判,跨厂商多样化 + Beta 后验"),
+        ("U3", "因果对比嵌入 (CCE)",
+         "现成的 SBERT / MedCPT",
+         "InfoNCE (Oord 2018);HSIC (Gretton 2005);MIPS (Saito 2022)",
+         "核心贡献;真实 ACI-Bench 上 AUC 1.0 → 0.55,恢复 positivity"),
         ("U4", "PSE 分解 + MSM",
          "ΔV 的单点估计",
-         "Pearl (2001)、Yadlowsky (2018) MSM",
-         "Logistic-MSM 的脆弱度 Γ* 闭式解;四轴路径特异分解"),
+         "Pearl (2001);Yadlowsky (2018) MSM",
+         "Logistic-MSM 脆弱度 Γ* 闭式解;四轴路径特异分解"),
     ]
-    # Header
-    headers = ["", "替换 / 新增内容", "替换对象", "理论来源", "我方贡献"]
-    col_x = [0.04, 0.12, 0.30, 0.46, 0.69]
-    col_w = [0.05, 0.18, 0.16, 0.23, 0.27]
-    y_head = 0.79
-    ax.add_patch(Rectangle((0.03, y_head - 0.05), 0.94, 0.05,
+    headers = ["", "新增内容", "替换对象", "理论来源", "我方贡献"]
+    # Chinese chars are wider than Latin; use char-count widths tuned by eye.
+    col_x = [0.045, 0.105, 0.31, 0.49, 0.72]
+    wrap_widths = [None, 12, 11, 16, 18]
+
+    # Header band
+    y_head = 0.80
+    ax.add_patch(Rectangle((0.03, y_head - 0.055), 0.94, 0.055,
                            facecolor=C_TITLE, edgecolor="none"))
     for h, x in zip(headers, col_x):
-        ax.text(x, y_head - 0.025, h, fontsize=11, color="white",
+        ax.text(x, y_head - 0.0275, h, fontsize=12, color="white",
                 fontweight="bold", va="center")
 
-    y = y_head - 0.10
+    # Body
+    row_h = 0.155
+    y_top = y_head - 0.07
     for i, row in enumerate(rows):
         if i % 2 == 0:
-            ax.add_patch(Rectangle((0.03, y - 0.085), 0.94, 0.10,
+            ax.add_patch(Rectangle((0.03, y_top - row_h + 0.005), 0.94, row_h,
                                    facecolor="#f4f6f9", edgecolor="none"))
-        ax.text(col_x[0], y, row[0], fontsize=14, color=C_ACCENT,
-                fontweight="bold", va="top")
+        ax.text(col_x[0], y_top - 0.005, row[0],
+                fontsize=18, color=C_ACCENT, fontweight="bold", va="top")
         for j in range(1, 5):
-            txt = row[j]
-            ax.text(col_x[j], y, txt, fontsize=10, color=C_BODY,
-                    va="top", wrap=True)
-        y -= 0.13
+            txt = textwrap.fill(row[j], width=wrap_widths[j])
+            ax.text(col_x[j], y_top - 0.005, txt,
+                    fontsize=11, color=C_BODY, va="top", linespacing=1.45)
+        y_top -= row_h
 
-    ax.text(0.06, 0.07,
+    ax.text(0.045, 0.075,
             "整体效果:在仅有日志数据的前提下,完成识别 + 估计 + 不确定性 + 敏感度。",
             fontsize=12, color=C_ACCENT, fontweight="bold")
     footer(ax, 7)

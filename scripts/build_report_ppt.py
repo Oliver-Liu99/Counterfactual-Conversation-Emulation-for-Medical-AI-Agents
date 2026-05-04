@@ -319,6 +319,7 @@ def slide_06_assumptions():
 
 
 def slide_07_upgrades_table():
+    import textwrap
     fig, ax = new_slide(
         "The Four Upgrades - Overview",
         "U1-U4: what each replaces, where it comes from, and what we contribute",
@@ -326,46 +327,53 @@ def slide_07_upgrades_table():
     rows = [
         ("U1", "Modern OPE estimators",
          "naive IPS / DM",
-         "DML (Chernozhukov 2018), TMLE (van der Laan 2006), Conformal CI (Taufiq 2022)",
-         "First clinical-NLP application; full DR-cross-fit + targeted update implementation"),
+         "DML (Chernozhukov 2018); TMLE (van der Laan 2006); Conformal CI (Taufiq 2022)",
+         "First clinical-NLP application; full DR cross-fit + targeted update"),
         ("U2", "Multi-agent debate judge",
          "single LLM-as-judge",
-         "Khan 2024, Chan 2024 (multi-agent debate)",
-         "Triadic defender/prosecutor/judge with cross-vendor diversity + Beta posterior"),
+         "Khan 2024; Chan 2024 (multi-agent debate)",
+         "Triadic defender / prosecutor / judge across vendors + Beta posterior"),
         ("U3", "Causal contrastive embedding",
-         "off-the-shelf SBERT/MedCPT for actions",
-         "InfoNCE (Oord 2018), HSIC (Gretton 2005), MIPS (Saito 2022)",
-         "Main contribution; AUC=1.0 -> 0.55 on real ACI-Bench means OPE finally identifiable"),
+         "off-the-shelf SBERT / MedCPT",
+         "InfoNCE (Oord 2018); HSIC (Gretton 2005); MIPS (Saito 2022)",
+         "Main contribution; AUC 1.0 -> 0.55 on real ACI-Bench restores positivity"),
         ("U4", "PSE decomposition + MSM",
-         "single point estimate of ΔV",
-         "Pearl (2001), Yadlowsky (2018) MSM",
-         "Logistic-MSM closed form for fragility Γ*; 4-axis path-specific decomposition"),
+         "single point estimate of dV",
+         "Pearl (2001); Yadlowsky (2018) MSM",
+         "Logistic-MSM closed form for fragility Gamma*; 4-axis path-specific decomp"),
     ]
-    # Header
-    headers = ["", "What it replaces / adds", "Replaces", "Source", "Our contribution"]
-    col_x = [0.04, 0.12, 0.30, 0.46, 0.69]
-    col_w = [0.05, 0.18, 0.16, 0.23, 0.27]
-    y_head = 0.79
-    ax.add_patch(Rectangle((0.03, y_head - 0.05), 0.94, 0.05,
+    # Column starts and per-column wrap widths (chars per line)
+    headers = ["", "What it adds", "Replaces", "Source", "Our contribution"]
+    col_x = [0.045, 0.105, 0.31, 0.49, 0.72]
+    wrap_widths = [None, 22, 18, 24, 28]
+
+    # Header band
+    y_head = 0.80
+    ax.add_patch(Rectangle((0.03, y_head - 0.055), 0.94, 0.055,
                            facecolor=C_TITLE, edgecolor="none"))
     for h, x in zip(headers, col_x):
-        ax.text(x, y_head - 0.025, h, fontsize=11, color="white",
+        ax.text(x, y_head - 0.0275, h, fontsize=12, color="white",
                 fontweight="bold", va="center")
 
-    y = y_head - 0.10
+    # Body
+    row_h = 0.155
+    y_top = y_head - 0.07  # top of first body row text
     for i, row in enumerate(rows):
+        # zebra stripe
         if i % 2 == 0:
-            ax.add_patch(Rectangle((0.03, y - 0.085), 0.94, 0.10,
+            ax.add_patch(Rectangle((0.03, y_top - row_h + 0.005), 0.94, row_h,
                                    facecolor="#f4f6f9", edgecolor="none"))
-        ax.text(col_x[0], y, row[0], fontsize=14, color=C_ACCENT,
-                fontweight="bold", va="top")
+        # U-code (column 0)
+        ax.text(col_x[0], y_top - 0.005, row[0],
+                fontsize=18, color=C_ACCENT, fontweight="bold", va="top")
+        # other columns: textwrap to width
         for j in range(1, 5):
-            txt = row[j]
-            ax.text(col_x[j], y, txt, fontsize=10, color=C_BODY,
-                    va="top", wrap=True)
-        y -= 0.13
+            txt = textwrap.fill(row[j], width=wrap_widths[j])
+            ax.text(col_x[j], y_top - 0.005, txt,
+                    fontsize=11, color=C_BODY, va="top", linespacing=1.45)
+        y_top -= row_h
 
-    ax.text(0.06, 0.07,
+    ax.text(0.045, 0.075,
             "Net effect: identification + estimation + uncertainty + sensitivity, all on logged data only.",
             fontsize=12, color=C_ACCENT, fontweight="bold")
     footer(ax, 7)
