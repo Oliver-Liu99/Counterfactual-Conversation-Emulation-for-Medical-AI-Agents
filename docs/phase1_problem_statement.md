@@ -1,8 +1,9 @@
 # Phase 1 Deliverable — One-Page Problem Statement
 
-> **Counterfactual Conversation Emulation for Medical AI Agents**
+> **Counterfactual Conversation Emulation for Off-Policy Evaluation of Medical Agents**
 > Author: Oliver Liu · Last updated 2026-05-05
 > Scope: tight one-pager. Long-form version with derivations: `docs/problem_statement_v2.md`.
+> **Canonical 12-week plan: `docs/research_plan_v2.md` (supersedes earlier U1–U4 framing).**
 
 ---
 
@@ -45,8 +46,26 @@ For unbiased identification of $V(\pi_{\mathrm{agent}})$ from observational $\ma
 | **A5** | **No interference** | Encounter $i$'s outcome does not depend on actions in encounter $j \ne i$ (panel-management edge cases excluded) |
 
 **Comments**:
-- **A2 is the binding constraint** — natural-language actions rarely overlap exactly. Mitigated by **MIPS over CCE embedding (U3)** which only requires overlap in embedding space; diagnosed by ESS/$n > 0.10$ and DRE classifier AUC $< 0.90$.
-- **A3 is heroic in medicine** — clinicians use unmeasured social cues. Not assumed to hold; instead, **U4 reports MSM bounds at $\Gamma \in \{1, 1.5, 2, 3\}$** so the headline survives moderate unmeasured confounding.
+- **A2 is the binding constraint** — natural-language actions rarely overlap exactly. Mitigated by **MIPS / OffCEM over an action embedding $\phi(a)$**, which only require overlap in embedding space; diagnosed by ESS/$n > 0.10$ and DRE classifier AUC $< 0.90$.
+- **A3 is heroic in medicine** — clinicians use unmeasured social cues. Not assumed to hold; sensitivity to it is reported as a **Phase 6 ablation** via MSM bounds at $\Gamma \in \{1, 1.5, 2, 3\}$ (see `docs/research_plan_v2.md` Ablation 4 and `src/ccema/analysis/sensitivity.py`).
+
+### 4.1 Two key embedding-space assumptions
+
+Working in $\phi$-space (MIPS / OffCEM) introduces two further assumptions
+on top of A1–A5:
+
+| # | Assumption | Concrete meaning | Status |
+|---|-----------|-----------------|--------|
+| **C1** | **Common embedding support** | $p_{\pi_b}(\phi \mid x) > 0$ wherever $p_{\pi_{\mathrm{agent}}}(\phi \mid x) > 0$ | Diagnosable from data; the **binding constraint** for MIPS — choose $\phi$ to make C1 hold while preserving outcome information |
+| **C2** | **No direct effect of $a$ given $\phi(a)$** | $Y \perp\!\!\!\perp A \mid X, \phi(A)$ — the embedding is a sufficient statistic for the action's effect on $Y$ | **Plausibly violated** in medical text: two assessments with the same embedding can still differ in safety detail |
+
+**How OffCEM handles C2 violations.** OffCEM (Saito et al. 2023) decomposes
+$Y = g(X, \phi(A)) + h(X, A) + \varepsilon$, with $g$ the cross-cluster
+(embedding-mediated) effect and $h$ the within-cluster residual. MIPS-style
+IPS is applied only to $g$; $h$ is estimated by a direct outcome model.
+The estimator stays consistent under (C1) alone, even when (C2) fails, as
+long as $h$ has bounded variance under $\pi_b$. This is **why the headline
+estimator in `docs/research_plan_v2.md` is OffCEM and not MIPS**.
 
 ## 5. Notation table
 
@@ -66,11 +85,26 @@ For unbiased identification of $V(\pi_{\mathrm{agent}})$ from observational $\ma
 | $\Gamma$ | MSM sensitivity parameter | $\Gamma \geq 1$ |
 | $\alpha$ | Conformal miscoverage level | 0.10 |
 
-## 6. Deliverable status
+## 6. Estimator stack (3 estimators)
 
-✅ **This document** = the Phase 1 deliverable.
+The core paper reports three estimators following `docs/research_plan_v2.md`:
+
+| Tag | Estimator | Source | Role |
+|-----|-----------|--------|------|
+| **DM-KL** | Direct Method with KL penalty toward $\pi_b$ | Jaques et al. 2019 | Robust low-variance baseline |
+| **MIPS** | Marginalized IPS over $\phi(a)$ | Saito & Joachims 2022 | Cardinality reduction $|\mathcal{A}| \to d$ |
+| **OffCEM** | Cluster-effect off-policy evaluation | Saito et al. 2023 | **Headline** — relaxes C2 |
+
+Phase 6 ablations (TMLE / DML cross-fit / conformal CI / debate judge / CCE
+learned embedding / path-specific decomposition / MSM sensitivity) are kept
+in the repo as supplementary material; see `docs/extensions_and_supplementary.md`.
+
+## 7. Deliverable status
+
+**This document** = the Phase 1 deliverable.
 Long-form derivations (5-axis assumption rationale, MSM derivation, conformal proof sketch) are in `docs/problem_statement_v2.md`.
-Decisions D1-D3 are also reflected in:
+The canonical 12-week plan and pitch are in `docs/research_plan_v2.md`.
+Decisions D1–D3 are also reflected in:
 - `configs/eval_config_v1.yaml` (frozen choices)
-- `docs/decision_log.md` (D001-D005 with fallback triggers)
+- `docs/decision_log.md` (D001–D006 with fallback triggers)
 - `src/ccema/judges/rubric.py` (4-axis rubric definition)

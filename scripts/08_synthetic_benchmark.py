@@ -19,11 +19,12 @@ from pathlib import Path
 import numpy as np
 
 from ccema.estimators.conformal_ci import jackknife_plus_ci, split_conformal_ci
-from ccema.estimators.dm import dm_estimate
+from ccema.estimators.dm import dm_estimate, dm_kl_estimate
 from ccema.estimators.dml_dr import dml_dr_estimate
 from ccema.estimators.dr import dr_estimate
 from ccema.estimators.ips import classifier_density_ratio, ips_estimate
 from ccema.estimators.mips import mips_estimate
+from ccema.estimators.offcem import offcem_estimate
 from ccema.estimators.synthetic_oracle import make_synthetic, relative_bias
 from ccema.estimators.tmle import tmle_estimate
 
@@ -48,6 +49,20 @@ def run_one_rep(seed: int, n: int, d: int) -> dict[str, float]:
     # DM (no propensity used)
     v_dm = dm_estimate(
         data.x, data.a, data.y, pi_e_prob_a1=data.pi_e_prob if False else _pi_e_prob_a1(data),
+    )
+
+    # DM-KL (Jaques 2019): KL-control penalty using nearest-clinician
+    # embedding distance. On the binary toy oracle, the agent embedding
+    # is 1-hot in {0, 1} so any agent action is also a clinician action
+    # — the nearest-distance is 0 and DM-KL collapses to vanilla DM.
+    rng_e = np.random.default_rng(seed)
+    a_target = (rng_e.random(size=len(data.a)) < data.pi_e_prob).astype(int)
+    phi_obs = data.a.reshape(-1, 1).astype(float)
+    phi_target = a_target.reshape(-1, 1).astype(float)
+    v_dm_kl, _ = dm_kl_estimate(
+        x=data.x, a_obs=data.a, y_obs=data.y,
+        phi_a_target=phi_target, phi_a_obs=phi_obs,
+        beta=1.0, seed=seed,
     )
 
     # IPS using the *true* propensity from the oracle
@@ -78,14 +93,31 @@ def run_one_rep(seed: int, n: int, d: int) -> dict[str, float]:
         cv_folds=5, explicit_pi_b_prob_a1=_pi_b_prob_a1(data), seed=seed,
     )
 
+    # OffCEM (Saito 2023): cluster-effect DM on (x, phi(a)) + residual MIPS.
+    # phi_obs and phi_target reused from the DM-KL block above.
+    v_offcem, offcem_diag = offcem_estimate(
+        x=data.x,
+        phi_a_obs=phi_obs,
+        y_obs=data.y,
+        phi_a_target=phi_target,
+        weights=data.w,
+        cv_folds=5,
+        self_normalized=True,
+        truncation_quantile=0.99,
+        seed=seed,
+    )
+
     return {
         "v_true": v_true,
         "DM": v_dm,
+        "DM-KL": v_dm_kl,
         "IPS": v_ips,
         "DR": v_dr,
         "MIPS": v_mips,
         "DML-DR": v_dml,
         "TMLE": v_tmle,
+        "OffCEM": v_offcem,
+        "_offcem_diag": offcem_diag,
     }
 
 
@@ -103,9 +135,10 @@ def main() -> None:
     out_dir = REPO_ROOT / args.output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    estimators = ["DM", "IPS", "DR", "MIPS", "DML-DR", "TMLE"]
+    estimators = ["DM", "DM-KL", "IPS", "DR", "MIPS", "DML-DR", "TMLE", "OffCEM"]
     biases: dict[str, list[float]] = {e: [] for e in estimators}
     rmses: dict[str, list[float]] = {e: [] for e in estimators}
+    offcem_diags: list[dict] = []
 
     for r in range(args.reps):
         rep = run_one_rep(seed=args.seed + r, n=args.n, d=args.d)
@@ -113,6 +146,8 @@ def main() -> None:
         for e in estimators:
             biases[e].append(rep[e] - v_true)
             rmses[e].append((rep[e] - v_true) ** 2)
+        if "_offcem_diag" in rep:
+            offcem_diags.append(rep["_offcem_diag"])
 
     print(f"\nSynthetic benchmark over {args.reps} reps, n={args.n}, d={args.d}")
     print(f"{'estimator':<10} {'mean bias':>12} {'rel bias':>12} {'RMSE':>12}")
@@ -138,6 +173,26 @@ def main() -> None:
     # Relative ordering check
     rmse_order = sorted(estimators, key=lambda e: float(np.sqrt(np.mean(np.array(rmses[e])))))
     print(f"\nRMSE ordering (best → worst): {' < '.join(rmse_order)}")
+
+    # OffCEM cluster vs residual decomposition (averaged across reps)
+    if offcem_diags:
+        v_dm_mean = float(np.mean([d["v_dm_cluster"] for d in offcem_diags]))
+        v_ips_mean = float(np.mean([d["v_ips_residual"] for d in offcem_diags]))
+        v_total_mean = float(np.mean([d["v_total"] for d in offcem_diags]))
+        print(
+            "\nOffCEM decomposition (mean across reps): "
+            f"v_dm_cluster={v_dm_mean:+.4f}, "
+            f"v_ips_residual={v_ips_mean:+.4f}, "
+            f"v_total={v_total_mean:+.4f}"
+        )
+    print(
+        "\nNote: On this binary-action toy oracle the action embedding "
+        "is 1-hot in {0, 1}, so every agent action coincides with some "
+        "clinician action and the DM-KL nearest-embedding distance is 0. "
+        "DM-KL therefore reduces to vanilla DM here — the KL-control "
+        "term only bites in higher-dimensional embedding spaces where "
+        "the agent can move outside the clinician support (Jaques 2019)."
+    )
 
     (out_dir / "synthetic_results.json").write_text(json.dumps(
         {"reps": args.reps, "n": args.n, "d": args.d, "results": table_rows,

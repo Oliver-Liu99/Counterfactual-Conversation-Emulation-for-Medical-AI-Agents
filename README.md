@@ -25,18 +25,22 @@ where `Y(x, a)` is a rubric-based outcome score on the encounter.
 
 ## Methodological position
 
-Beyond the standard target-trial-emulation + DM/IPS/DR stack, this codebase
-implements four upgrades that each independently strengthen the contribution:
+The core paper is framed as the **first migration of MIPS and OffCEM from
+recommender systems to medical AI-agent off-policy evaluation**, with a
+KL-controlled Direct Method as the calibration baseline. The estimator stack
+is three published methods (2019–2023):
 
-| # | Upgrade | Replaces |
-|---|---------|----------|
-| **U1** | DML cross-fit DR + TMLE + Conformal OPE CIs | DM / IPS / DR + bootstrap CI |
-| **U2** | Multi-agent debate judge + 4-axis process reward | Single LLM-as-judge with scalar y |
-| **U3** | Causal Contrastive Embedding (CCE) + MIPS | Off-the-shelf embeddings + classifier DRE |
-| **U4** | Path-specific decomposition + Marginal Sensitivity Model | Scalar V(π_agent) under no-confounding |
+| Tag | Estimator | Source | Role |
+|-----|-----------|--------|------|
+| **DM-KL** | Direct Method with KL penalty toward $\pi_b$ | Jaques et al. 2019 | Robust low-variance baseline |
+| **MIPS** | Marginalized IPS over action embedding $\phi(a)$ | Saito & Joachims 2022 | Reduces variance from $|\mathcal{A}|$ to $d$ |
+| **OffCEM** | Cluster-effect off-policy evaluation | Saito et al. 2023 | **Headline** — relaxes "no direct effect" |
 
-Active calibration sampling (U5) replaces stratified random sampling for the
-human-rated calibration set.
+The canonical 12-week plan is `docs/research_plan_v2.md`. Phase 6 ablations
+(TMLE / DML cross-fit / conformal CI, multi-agent debate judge, CCE learned
+embedding, path-specific decomposition, MSM sensitivity) remain in the
+codebase as supplementary material — see
+`docs/extensions_and_supplementary.md` for the catalog.
 
 ## Repository layout
 

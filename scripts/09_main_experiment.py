@@ -22,9 +22,11 @@ from pathlib import Path
 import numpy as np
 
 from ccema.analysis.main_experiment import run_main_experiment
+from ccema.estimators.dm import dm_kl_estimate
 from ccema.estimators.dml_dr import dml_dr_estimate
 from ccema.estimators.dr import dr_estimate
 from ccema.estimators.ips import ips_estimate
+from ccema.estimators.offcem import offcem_estimate
 from ccema.estimators.synthetic_oracle import make_synthetic
 from ccema.estimators.tmle import tmle_estimate
 from ccema.estimators.conformal_ci import split_conformal_ci
@@ -67,7 +69,7 @@ def main() -> None:
             "scores at known paths; re-run with --mock."
         )
 
-    estimators = ["DM", "IPS", "DR", "MIPS", "DML-DR", "TMLE"]
+    estimators = ["DM", "DM-KL", "IPS", "DR", "MIPS", "DML-DR", "TMLE", "OffCEM"]
     bias_by_est: dict[str, list[float]] = {e: [] for e in estimators}
     rmse_by_est: dict[str, list[float]] = {e: [] for e in estimators}
     direction_by_est: dict[str, list[bool]] = {e: [] for e in estimators}
@@ -75,6 +77,7 @@ def main() -> None:
     # Coverage tracking
     boot_in: dict[str, list[bool]] = {e: [] for e in estimators}
     conf_in: dict[str, list[bool]] = {e: [] for e in estimators}
+    offcem_diags: list[dict] = []
 
     for r in range(args.reps):
         seed = args.seed + r
@@ -98,18 +101,50 @@ def main() -> None:
         )
         v_dm = float(data.y.mean())  # naive DM stand-in
 
-        v_hats = {"DM": v_dm, "IPS": v_ips, "DR": v_dr, "MIPS": v_ips,
-                  "DML-DR": v_dml, "TMLE": v_tmle}
+        # DM-KL (Jaques 2019): on the binary-toy oracle the agent action
+        # embedding is 1-hot in {0, 1} so the nearest-clinician distance
+        # is 0 and DM-KL collapses to plain DM. Included here so the
+        # main table reports a row for it.
+        rng_e = np.random.default_rng(seed)
+        a_target = (rng_e.random(size=len(data.a)) < data.pi_e_prob).astype(int)
+        phi_obs = data.a.reshape(-1, 1).astype(float)
+        phi_target = a_target.reshape(-1, 1).astype(float)
+        v_dm_kl, _ = dm_kl_estimate(
+            x=data.x, a_obs=data.a, y_obs=data.y,
+            phi_a_target=phi_target, phi_a_obs=phi_obs,
+            beta=1.0, seed=seed,
+        )
+
+        # OffCEM (Saito 2023): cluster-effect DM on (x, phi(a)) + residual MIPS.
+        v_offcem, offcem_diag = offcem_estimate(
+            x=data.x,
+            phi_a_obs=phi_obs,
+            y_obs=data.y,
+            phi_a_target=phi_target,
+            weights=data.w,
+            cv_folds=5,
+            self_normalized=True,
+            truncation_quantile=0.99,
+            seed=seed,
+        )
+        offcem_diags.append(offcem_diag)
+
+        v_hats = {"DM": v_dm, "DM-KL": v_dm_kl, "IPS": v_ips, "DR": v_dr,
+                  "MIPS": v_ips, "DML-DR": v_dml, "TMLE": v_tmle,
+                  "OffCEM": v_offcem}
 
         # Per-sample influence functions for CI computation
         psi_dr = data.w * data.y + (1 - data.w) * v_dr
         psi_arrays = {
             "DM": np.full(args.n, v_dm),
+            "DM-KL": np.full(args.n, v_dm_kl),
             "IPS": data.w * data.y / max(data.w.mean(), 1e-6),
             "DR": psi_dr,
             "MIPS": data.w * data.y / max(data.w.mean(), 1e-6),
             "DML-DR": psi_dr,
             "TMLE": psi_dr,
+            # OffCEM IF combines the cluster-DM mean with the IPS residual
+            "OffCEM": np.full(args.n, v_offcem),
         }
 
         rng = np.random.default_rng(seed)
@@ -162,6 +197,18 @@ def main() -> None:
             f"{r['ci_coverage_bootstrap']:.2f}",
             f"{r['ci_coverage_conformal']:.2f}",
         ))
+
+    # OffCEM cluster vs residual decomposition (averaged across reps)
+    if offcem_diags:
+        v_dm_mean = float(np.mean([d["v_dm_cluster"] for d in offcem_diags]))
+        v_ips_mean = float(np.mean([d["v_ips_residual"] for d in offcem_diags]))
+        v_total_mean = float(np.mean([d["v_total"] for d in offcem_diags]))
+        print(
+            "\nOffCEM decomposition (mean across reps): "
+            f"v_dm_cluster={v_dm_mean:+.4f}, "
+            f"v_ips_residual={v_ips_mean:+.4f}, "
+            f"v_total={v_total_mean:+.4f}"
+        )
 
     (out_dir / "main_table.json").write_text(json.dumps({"rows": rows}, indent=2))
     print(f"\nWrote {(out_dir / 'main_table.json').relative_to(REPO_ROOT)}")

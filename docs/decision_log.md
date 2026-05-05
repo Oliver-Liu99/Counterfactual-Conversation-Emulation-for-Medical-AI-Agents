@@ -86,3 +86,37 @@ MedDialog-EN is too noisy for primary outcomes.
 **What invalidates this.** If MTS-Dialog leaks into MedGemma's training
 corpus (Layer-2 audit), drop MedGemma 3rd arm and report only the closed-
 source pair on MTS-Dialog.
+
+---
+
+## 2026-05-05 — D006: Refocus paper around DM-KL / MIPS / OffCEM (research_plan_v2)
+
+**Choice.** The core paper's estimator stack is the three published
+methods **DM with KL-control (Jaques 2019), MIPS (Saito & Joachims 2022),
+and OffCEM (Saito et al. 2023)**, with OffCEM as the headline. The
+canonical 12-week plan is `docs/research_plan_v2.md`; older plans defer
+to it on conflict. The previous "U1–U4 four upgrades" framing
+(TMLE / debate / CCE / MSM) is **not deleted** — it moves to Phase 6
+ablations and supplementary material, cataloged in
+`docs/extensions_and_supplementary.md`. D002–D005 remain valid as
+sub-decisions, now interpreted as Phase 6 ablation choices rather than
+core-paper headline choices.
+
+**Why.** Tighter, more defensible pitch as *"first medical-NLP
+application of published OPE-for-large-action methods (MIPS / OffCEM)
+plus a KL-control DM baseline"* rather than *"we propose 4 novel
+upgrades simultaneously"*. The former has a cleaner novelty story
+(method migration across domains, à la "first import of X from
+recommender systems to medicine") and a smaller surface area for
+reviewer attack. Each Phase-6 ablation then becomes a positive
+robustness result rather than a load-bearing claim.
+
+**What invalidates this.** If Phase 4 implementation reveals that
+OffCEM's cluster-effect decomposition is insufficient on real medical
+data — i.e. the within-cluster residual $h(X, A)$ has variance
+comparable to the cross-cluster signal $g(X, \phi(A))$ — fall back to
+the **TMLE + CCE narrative** (Extensions 1 + 3 from
+`docs/extensions_and_supplementary.md` become primary). Specifically:
+trigger the fallback if synthetic-oracle OffCEM RMSE $\geq$ MIPS RMSE,
+or if real-data OffCEM CIs cover a wider range than DML-DR by more
+than 1.5×.
